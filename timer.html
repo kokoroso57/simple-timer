@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タイマー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    h1 { font-size: 1.2rem; letter-spacing: 0.2em; color: #a0a0c0; margin-bottom: 2rem; }
+
+    .display {
+      font-size: 6rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.05em;
+      color: #e0e0ff;
+      margin-bottom: 2rem;
+      transition: color 0.3s;
+    }
+
+    .display.warning { color: #ff9966; }
+    .display.danger  { color: #ff4444; }
+
+    .set-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .set-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .set-group label { font-size: 0.75rem; color: #808090; letter-spacing: 0.1em; }
+
+    .set-group input {
+      width: 5rem;
+      text-align: center;
+      font-size: 1.4rem;
+      background: #16213e;
+      border: 1px solid #30305a;
+      border-radius: 8px;
+      color: #eee;
+      padding: 0.4rem;
+    }
+
+    .set-group input:focus { outline: none; border-color: #7070cc; }
+
+    .buttons {
+      display: flex;
+      gap: 1rem;
+    }
+
+    button {
+      padding: 0.7rem 1.8rem;
+      border: none;
+      border-radius: 50px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.35; cursor: default; }
+
+    #btnStart  { background: #4c6ef5; color: #fff; }
+    #btnPause  { background: #f0a500; color: #fff; }
+    #btnReset  { background: #30305a; color: #ccc; }
+  </style>
+</head>
+<body>
+  <h1>TIMER</h1>
+  <div class="display" id="display">00:00</div>
+
+  <div class="set-row">
+    <div class="set-group">
+      <label>分</label>
+      <input type="number" id="inputMin" value="5" min="0" max="99">
+    </div>
+    <div class="set-group">
+      <label>秒</label>
+      <input type="number" id="inputSec" value="0" min="0" max="59">
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button id="btnStart">開始</button>
+    <button id="btnPause" disabled>一時停止</button>
+    <button id="btnReset">リセット</button>
+  </div>
+
+  <audio id="beep" preload="auto"></audio>
+
+  <script>
+    const display  = document.getElementById('display');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const btnReset = document.getElementById('btnReset');
+    const inputMin = document.getElementById('inputMin');
+    const inputSec = document.getElementById('inputSec');
+
+    let remaining = 0;
+    let interval  = null;
+    let running   = false;
+
+    function fmt(s) {
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    function updateColor() {
+      display.classList.remove('warning', 'danger');
+      if (remaining <= 10) display.classList.add('danger');
+      else if (remaining <= 30) display.classList.add('warning');
+    }
+
+    function playBeep() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.15, 0.3].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.12);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.13);
+      });
+    }
+
+    function tick() {
+      if (remaining <= 0) {
+        clearInterval(interval);
+        running = false;
+        display.textContent = '00:00';
+        display.classList.add('danger');
+        btnStart.disabled = false;
+        btnPause.disabled = true;
+        playBeep();
+        return;
+      }
+      remaining--;
+      display.textContent = fmt(remaining);
+      updateColor();
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (!running) {
+        if (remaining === 0) {
+          const m = parseInt(inputMin.value) || 0;
+          const s = parseInt(inputSec.value) || 0;
+          remaining = m * 60 + s;
+          if (remaining === 0) return;
+        }
+        display.textContent = fmt(remaining);
+        updateColor();
+        interval = setInterval(tick, 1000);
+        running = true;
+        btnStart.disabled = true;
+        btnPause.disabled = false;
+      }
+    });
+
+    btnPause.addEventListener('click', () => {
+      clearInterval(interval);
+      running = false;
+      btnStart.disabled = false;
+      btnPause.disabled = true;
+    });
+
+    btnReset.addEventListener('click', () => {
+      clearInterval(interval);
+      running = false;
+      remaining = 0;
+      display.textContent = fmt(0);
+      display.classList.remove('warning', 'danger');
+      btnStart.disabled = false;
+      btnPause.disabled = true;
+    });
+  </script>
+</body>
+</html>

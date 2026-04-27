@@ -115,6 +115,17 @@
     let interval  = null;
     let running   = false;
 
+    // AudioContext をユーザー操作タイミングで生成・維持する
+    let audioCtx = null;
+    function getAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      // suspended なら resume してから返す
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
     function fmt(s) {
       const m = Math.floor(s / 60).toString().padStart(2, '0');
       const sec = (s % 60).toString().padStart(2, '0');
@@ -130,7 +141,7 @@
     // 阪神応援風ファンファーレ
     // メロディ: C5→E5→G5→C6(長)→G5→E5→C6(長) ブラス音色で
     function playFanfare() {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = getAudioCtx();
 
       // ブラス風音色: ノコギリ波 + ローパスフィルタ + 倍音補強
       function playBrass(freq, startTime, duration, volume = 0.45) {
@@ -248,22 +259,21 @@
     }
 
     function tick() {
-      if (remaining <= 0) {
-        clearInterval(interval);
-        running = false;
-        display.textContent = '00:00';
-        display.classList.add('danger');
-        btnStart.disabled = false;
-        btnPause.disabled = true;
-        playFanfare();
-        return;
-      }
       remaining--;
       display.textContent = fmt(remaining);
       updateColor();
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        running = false;
+        btnStart.disabled = false;
+        btnPause.disabled = true;
+        playFanfare(); // 00:00 を表示した瞬間に鳴らす
+      }
     }
 
     btnStart.addEventListener('click', () => {
+      getAudioCtx(); // ユーザー操作タイミングで AudioContext を初期化・resume
       if (!running) {
         if (remaining === 0) {
           const m = parseInt(inputMin.value) || 0;
